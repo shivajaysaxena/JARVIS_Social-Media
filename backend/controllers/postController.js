@@ -1,38 +1,77 @@
 import Post from '../models/post.js'
 import User from '../models/user.js'
 import Notification from '../models/notification.js'
+import SuspiciousUser from '../models/suspiciousUser.js'
 import {v2 as cloudinary} from 'cloudinary';
+import axios from 'axios';
 
 export const createPost = async (req, res) => {
     try {
-        const {text} = req.body;
-        let {img} = req.body;
+        const { text } = req.body;
+        let { img } = req.body;
         const userId = req.user._id.toString();
 
-        if(!text && !img){
-            return res.status(400).json({error : "Post can't be empty"})
+        // Validate if post content is empty
+        if (!text && !img) {
+            return res.status(400).json({ error: "Post can't be empty" });
         }
+
+        // Check if user exists
         const user = await User.findById(userId);
-        if(!user){
-            return res.status(404).json({error : "User not found"})
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
         }
-        if(img){
+
+        // Upload image to Cloudinary if provided
+        if (img) {
             const uploadedResponse = await cloudinary.uploader.upload(img);
             img = uploadedResponse.secure_url;
         }
 
+        const drugArr = new Set();
+        if(img){
+            const response = await axios({
+                method: "POST",
+                url: "https://detect.roboflow.com/drugs-detection/3",
+                params: {
+                  api_key: "nnCVEh1nkEkwtwnl62o3",
+                  image: img,
+                },
+            });
+            const drugs = response.data.predictions;
+            drugs.map((drug) => drugArr.add(drug.class));
+        }
+        console.log(drugArr)
+
+        // Create and save new post
         const newPost = new Post({
             userId,
             text,
             img,
         });
+
+        const postId = newPost._id;
         await newPost.save();
-        return res.status(201).json({newPost});
+        if (drugArr.size > 0) {
+            let flaggedUser = await SuspiciousUser.findOne({userId: userId});
+            if (flaggedUser) {
+                // If flaggedUser exists, add postId to posts array
+                flaggedUser.posts.push(postId);
+            } else {
+                // Create a new SuspiciousUser document if it doesn't exist
+                flaggedUser = new SuspiciousUser({
+                    userId,
+                    posts: [postId],
+                });
+            }
+            await flaggedUser.save();
+        }
+        return res.status(201).json({ newPost });
     } catch (error) {
-        console.log("error in createPost controller : ", error.message);
-        res.status(500).json({error : "Internal server error"});
+        console.log("Error in createPost controller:", error.message);
+        res.status(500).json({ error: "Internal server error" });
     }
-}
+};
 
 export const deletePost = async (req, res) => {
     try {

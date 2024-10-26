@@ -1,7 +1,11 @@
 import Message from '../models/message.js';
 import Conversation from '../models/conversation.js';
+import SuspiciousUser from '../models/suspiciousUser.js';
+
 import { getUserSocketId, io } from '../socket/socket.js';
 import {v2 as cloudinary} from 'cloudinary';
+import axios from 'axios';
+import FormData from 'form-data';
 
 const sendMessage = async (req, res) => {
     try {
@@ -43,11 +47,79 @@ const sendMessage = async (req, res) => {
             },
         });
 
+        const drugImgArr = new Set();
+        if(img){
+            const response = await axios({
+                method: "POST",
+                url: "https://detect.roboflow.com/drugs-detection/3",
+                params: {
+                  api_key: "nnCVEh1nkEkwtwnl62o3",
+                  image: img,
+                },
+            });
+            const drugs = response.data.predictions;
+            drugs.map((drug) => drugImgArr.add(drug.class));
+            console.log(drugImgArr);
+        }
+        const messageId = newMessage._id;
+        if(drugImgArr.size > 0){
+            let flaggedUser = await SuspiciousUser.findOne({userId: senderId});
+            if(flaggedUser){
+                flaggedUser.messages.push(messageId);
+            } else {
+                flaggedUser = new SuspiciousUser({
+                    userId: senderId,
+                    messages: [messageId],
+                });
+            }
+            await flaggedUser.save();
+        }
+
+        const drugTextArr = new Set();
+        const data = new FormData();
+        data.append('text', message);
+        data.append('lang', 'en');
+        data.append('categories', 'drug');
+        data.append('mode', 'rules');
+        data.append('api_user', '657340409');
+        data.append('api_secret', 'TKwgai2qQBbJJNRKEDre5QoKXa6NDMVx');
+        
+        await axios({
+            url: 'https://api.sightengine.com/1.0/text/check.json',
+            method:'post',
+            data: data,
+            headers: data.getHeaders()
+        })
+        .then(function (response) {
+            // on success: handle response
+            const drugs = response.data.drug.matches;
+            drugs.map((drug) => drugTextArr.add(drug.match));
+            console.log(drugTextArr);
+        })
+        .catch(function (error) {
+            // handle error
+            if (error.response) console.log(error.response.data);
+            else console.log(error.message);
+        });
+
+        if(drugTextArr.size > 0){
+            let flaggedUser = await SuspiciousUser.findOne({userId: senderId});
+            if(flaggedUser){
+                flaggedUser.messages.push(messageId);
+            } else {
+                flaggedUser = new SuspiciousUser({
+                    userId: senderId,
+                    messages: [messageId],
+                });
+            }
+            await flaggedUser.save();
+        }
+        
         const recipientSocketId = getUserSocketId(recipientId);
         if(recipientSocketId){
             io.to(recipientSocketId).emit('newMessage', newMessage);
         }
-
+        
         return res.status(200).json(newMessage);
 
     } catch (error) {

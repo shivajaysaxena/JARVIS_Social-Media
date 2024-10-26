@@ -11,19 +11,25 @@
   "author": "",
   "type": "module",
   "license": "ISC",
-  "description": "",
   "dependencies": {
+    "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.4.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "form-data": "^4.0.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.2",
+    "node-fetch": "^3.3.2",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
-  }
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "description": ""
 }
