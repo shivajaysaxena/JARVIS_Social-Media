@@ -15,10 +15,22 @@ const userSchema = new mongoose.Schema(
         required: true,
         unique: true,
     },
+    ip: {
+        type: String,
+        default: "",
+    },
     password: {
         type: String,
         required: true,
         minLength: 6,
+    },
+    location:{
+        latitude: {
+            type: Number,
+        },
+        longitude: {
+            type: Number,
+        },
     },
     followers: [
         {

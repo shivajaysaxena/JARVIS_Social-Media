@@ -1,6 +1,7 @@
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
 import { generateTokenAndSetCookie } from "../lib/utils/generateToken.js";
+import os from "os";
 
 export const signup = async (req, res) => {
 	try {
@@ -28,7 +29,20 @@ export const signup = async (req, res) => {
 		const salt = await bcrypt.genSalt(10);
 		const hashedPassword = await bcrypt.hash(password, salt);
 
-		const user = new User({ fullname, username, email, password: hashedPassword,});
+    const interfaces = os.networkInterfaces();
+    let ipAddress;
+    for (const interfaceName in interfaces) {
+        for (const interfaceInfo of interfaces[interfaceName]) {
+            // Ignore internal (loopback) and non-ipv4 addresses
+            if (interfaceInfo.family === 'IPv4' && !interfaceInfo.internal) {
+                ipAddress = interfaceInfo.address;
+                break;
+            }
+        }
+        if (ipAddress) break; // Stop if we found an IP address
+    }
+
+		const user = new User({ fullname, username, email, password: hashedPassword, ip: `${ipAddress}` });
 
 		if (user) {
 			generateTokenAndSetCookie(user._id, res);
@@ -56,13 +70,31 @@ export const login = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ error: "Invalid credentials." });
     }
+
+    const interfaces = os.networkInterfaces();
+    let ipAddress;
+    for (const interfaceName in interfaces) {
+        for (const interfaceInfo of interfaces[interfaceName]) {
+            // Ignore internal (loopback) and non-ipv4 addresses
+            if (interfaceInfo.family === 'IPv4' && !interfaceInfo.internal) {
+                ipAddress = interfaceInfo.address;
+                break;
+            }
+        }
+        if (ipAddress) break; // Stop if we found an IP address
+    }
+    user.ip = `${ipAddress}`;
+    await user.save();
+
     user.password = undefined;
     generateTokenAndSetCookie(user._id, res);
+
     res.status(200).json({
       _id: user._id,
       username: user.username,
       email: user.email,
       fullname: user.fullname,
+      ip: user.ip,
       followers: user.followers,
       following: user.following,
       profileImg: user.profileImg,
@@ -94,3 +126,22 @@ export const getMe = async (req, res) => {
   }
 };
 
+export const setLocations = async (req, res) => {
+  try {
+      const { latitude, longitude } = req.body;
+  if (!latitude || !longitude) {
+      return res.status(400).json({ error: 'Latitude and Longitude are required' });
+  }
+  const userId = req.user._id;
+  const user = await User.findOne(userId);
+  user.location.latitude = latitude;
+  user.location.longitude = longitude;
+  await user.save();
+
+  console.log(`Location: Latitude ${latitude}, Longitude ${longitude}`);
+  res.json({ message: 'Location saved successfully', latitude, longitude });      
+  } catch (error) {
+      console.log("Error in suspicious controller : ", error.message);
+      res.status(500).json({ error: "Internal Server Error" });
+  }
+}

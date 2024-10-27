@@ -11,6 +11,7 @@ import userRoutes from "./routes/userRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import messageRoutes from './routes/messageRoutes.js';
+import suspiciousRoutes from './routes/suspiciousRoutes.js';
 
 dotenv.config(path.resolve('../.env'));
 
@@ -36,6 +37,7 @@ app.use("/api/user", userRoutes)
 app.use("/api/post", postRoutes)
 app.use("/api/notification", notificationRoutes)
 app.use("/api/messages", messageRoutes )
+app.use("/api/suspicious", suspiciousRoutes)
 
 if(process.env.NODE_ENV === 'production'){
     app.use(express.static(path.join(__dirname, '../frontend/dist')))

@@ -9,7 +9,7 @@ export const createPost = async (req, res) => {
     try {
         const { text } = req.body;
         let { img } = req.body;
-        const userId = req.user._id.toString();
+        const userId = req.user._id;
 
         // Validate if post content is empty
         if (!text && !img) {
@@ -17,7 +17,7 @@ export const createPost = async (req, res) => {
         }
 
         // Check if user exists
-        const user = await User.findById(userId);
+        const user = await User.findById(userId.toString());
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
